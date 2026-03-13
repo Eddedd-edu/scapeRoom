@@ -198,14 +198,30 @@ input[type="text"] {
   canvas.width = V_W; canvas.height = V_H;
 
   const QUESTION_POOLS = [
-    [ { q: "¿Cuál de estas es una propiedad extrínseca?", opts: ["Masa", "Densidad", "Punto de fusión", "Color"], c: 0, def: "La MASA es extrínseca porque depende de la cantidad de materia." },
-      { q: "¿Qué propiedad mide el espacio que ocupa un cuerpo?", opts: ["Peso", "Volumen", "Dureza", "Brillo"], c: 1, def: "El VOLUMEN es una propiedad extrínseca de la extensión espacial." } ],
-    [ { q: "¿Cuál es una propiedad intrínseca (específica)?", opts: ["Volumen", "Masa", "Densidad", "Longitud"], c: 2, def: "La DENSIDAD identifica a la sustancia sin importar su cantidad." },
-      { q: "¿Qué propiedad es el punto de ebullición?", opts: ["Química", "Intrínseca", "Extrínseca", "General"], c: 1, def: "Es INTRÍNSECA; cada sustancia pura hierve a una temperatura fija." } ],
-    [ { q: "¿Cuál es una propiedad química de la materia?", opts: ["Color", "Oxidación", "Dureza", "Punto de fusión"], c: 1, def: "La OXIDACIÓN transforma la materia en algo nuevo." },
-      { q: "¿Qué propiedad indica que algo puede arder?", opts: ["Combustión", "Densidad", "Masa", "Maleabilidad"], c: 0, def: "La COMBUSTIÓN es una propiedad química fundamental." } ],
-    [ { q: "¿Qué propiedad permite formar hilos delgados?", opts: ["Dureza", "Ductilidad", "Maleabilidad", "Peso"], c: 1, def: "La DUCTILIDAD permite crear alambres o hilos metálicos." },
-      { q: "¿Qué propiedad permite formar láminas delgadas?", opts: ["Tenacidad", "Fragilidad", "Maleabilidad", "Densidad"], c: 2, def: "La MALEABILIDAD es la capacidad de convertirse en láminas." } ]
+    [ // TERMINAL 1: Propiedades Generales / Extrínsecas
+      { q: "¿Qué propiedad explica la resistencia de un cuerpo a cambiar su estado de reposo o movimiento?", opts: ["Inercia", "Impenetrabilidad", "Densidad", "Volumen"], c: 0, def: "La INERCIA es una propiedad general; a mayor masa, mayor inercia." },
+      { q: "¿Por qué dos cuerpos no pueden ocupar el mismo espacio simultáneamente?", opts: ["Porcelana", "Impenetrabilidad", "Tenacidad", "Elasticidad"], c: 1, def: "La IMPENETRABILIDAD es una propiedad extrínseca de toda la materia." },
+      { q: "A diferencia de la masa, ¿qué propiedad varía dependiendo de la gravedad del planeta?", opts: ["Volumen", "Inercia", "Peso", "Punto de fusión"], c: 2, def: "El PESO es una fuerza que depende de la gravedad, mientras que la masa es constante." },
+      { q: "¿Qué propiedad general describe los espacios intermoleculares vacíos en la materia?", opts: ["Porosidad", "Densidad", "Compresibilidad", "Volumen"], c: 0, def: "La POROSIDAD indica que toda materia tiene espacios vacíos entre sus partículas." }
+    ],
+    [ // TERMINAL 2: Propiedades Intrínsecas / Físicas
+      { q: "Si cortas un bloque de hierro a la mitad, ¿qué propiedad se mantiene exactamente igual?", opts: ["Volumen", "Masa", "Peso", "Densidad"], c: 3, def: "La DENSIDAD es intensiva/intrínseca; la relación masa/volumen no cambia al dividir la muestra." },
+      { q: "La temperatura a la cual la presión de vapor del sólido iguala a la del líquido es...", opts: ["Punto de ebullición", "Punto de fusión", "Calor específico", "Conductividad"], c: 1, def: "Es el PUNTO DE FUSIÓN, una propiedad física específica de cada sustancia pura." },
+      { q: "La capacidad de una sustancia de disolverse en otra a una temperatura determinada es:", opts: ["Miscibilidad", "Densidad", "Solubilidad", "Viscosidad"], c: 2, def: "La SOLUBILIDAD es una propiedad física intrínseca que depende del soluto, solvente y temperatura." },
+      { q: "¿Qué propiedad permite a los metales oponer baja resistencia al paso de electrones?", opts: ["Ductilidad", "Conductividad eléctrica", "Electronegatividad", "Calor específico"], c: 1, def: "La CONDUCTIVIDAD ELÉCTRICA es la capacidad de permitir el flujo de corriente." }
+    ],
+    [ // TERMINAL 3: Propiedades Químicas
+      { q: "La pérdida de electrones de un átomo al interactuar con el oxígeno se denomina:", opts: ["Reducción", "Combustión", "Oxidación", "Electrólisis"], c: 2, def: "La OXIDACIÓN es una propiedad química donde hay transferencia de electrones." },
+      { q: "La tendencia de un elemento a combinarse con otros para alcanzar estabilidad electrónica es su...", opts: ["Reactividad", "Electronegatividad", "Afinidad electrónica", "Energía de ionización"], c: 0, def: "La REACTIVIDAD química define cómo y con qué otras sustancias reaccionará un material." },
+      { q: "¿Qué propiedad química requiere de una sustancia inflamable, oxígeno y una energía de activación?", opts: ["Combustión", "Corrosión", "Putrefacción", "Fermentación"], c: 0, def: "La COMBUSTIÓN es una reacción de oxidación rápida que libera luz y calor." },
+      { q: "La capacidad de una sustancia de liberar iones H+ en una solución acuosa define su:", opts: ["Alcalinidad", "Acidez", "Basicidad", "Neutralidad"], c: 1, def: "La ACIDEZ es una propiedad química clave en las reacciones ácido-base." }
+    ],
+    [ // TERMINAL 4: Propiedades Mecánicas y Fluidos
+      { q: "La resistencia que opone un material a ser roto, molido o doblado se conoce como:", opts: ["Dureza", "Tenacidad", "Fragilidad", "Elasticidad"], c: 1, def: "La TENACIDAD es la energía que absorbe un material antes de romperse." },
+      { q: "En la escala de Mohs, ¿qué propiedad evalúa la resistencia a ser rayado?", opts: ["Dureza", "Tenacidad", "Cohesión", "Adherencia"], c: 0, def: "La DUREZA (como la del diamante) mide la resistencia superficial al rayado." },
+      { q: "La capacidad de un material de recuperar su forma original tras cesar la fuerza deformante es:", opts: ["Plasticidad", "Maleabilidad", "Elasticidad", "Viscosidad"], c: 2, def: "La ELASTICIDAD es típica de resortes y gomas, oponiéndose a la deformación permanente." },
+      { q: "La resistencia interna que opone un fluido a fluir libremente se denomina:", opts: ["Tensión superficial", "Densidad", "Capilaridad", "Viscosidad"], c: 3, def: "La VISCOSIDAD (ej. la miel) depende de las fuerzas de cohesión entre las moléculas del fluido." }
+    ]
   ];
 
   const player = { x: 60, y: GROUND_Y - 48, w: 24, h: 48, vx: 0, vy: 0, speed: 3.5, jumpForce: -11, gravity: 0.6, dir: 1, frame: 0, isMoving: false, isGrounded: true };
