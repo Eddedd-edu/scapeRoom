@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>Protocolo de Emergencia - Propiedades de la Materia</title>
 <style>
 :root{
@@ -15,63 +15,89 @@
   --gold: #ffcc00;
 }
 
-html,body{height:100%;margin:0;background:var(--bg);font-family: monospace; overflow: hidden; color: var(--text);}
-#wrap{position:relative;height:100vh;display:flex;align-items:center;justify-content:center;}
+html,body{height:100%; margin:0; background:var(--bg); font-family: monospace; overflow: hidden; color: var(--text); touch-action: none;}
+#wrap{position:relative; height:100vh; display:flex; align-items:center; justify-content:center; flex-direction: column;}
 
+/* Adaptación del canvas para móviles */
 canvas{
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   background: #081028;
   border: 4px solid #1e293b;
   box-shadow: 0 0 30px rgba(255, 0, 0, 0.2);
+  max-width: 100%;
+  max-height: 70vh; /* Deja espacio para los botones en móviles */
+  object-fit: contain;
 }
 
 #hud{
-  position:absolute; left:20px; top:20px;
+  position:absolute; left:10px; top:10px;
   background: rgba(15, 23, 42, 0.9); border: 2px solid var(--danger);
-  padding:15px; border-radius:4px; min-width:240px;
+  padding:10px; border-radius:4px;
   backdrop-filter: blur(5px); z-index: 10;
 }
-#timer-box { font-size: 22px; color: var(--danger); font-weight: bold; margin-bottom: 5px; text-shadow: 0 0 8px red;}
+#timer-box { font-size: 18px; color: var(--danger); font-weight: bold; margin-bottom: 5px; text-shadow: 0 0 8px red;}
 
-#modal{
+#modal, #login-modal {
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  width:480px; max-width:calc(100vw - 40px);
+  width:90%; max-width: 480px;
   background:var(--panel); border:4px solid var(--accent2);
-  padding:25px; display:none; z-index:40;
+  padding:20px; display:none; z-index:40;
   box-shadow: 0 0 0 4px #000, 0 10px 50px rgba(0,0,0,0.9);
 }
 
 .def-box {
     background: rgba(100, 255, 218, 0.1);
     border-left: 4px solid var(--accent2);
-    padding: 12px; margin: 15px 0; font-size: 14px;
-    color: #fff; line-height: 1.4;
+    padding: 10px; margin: 10px 0; font-size: 14px; color: #fff; line-height: 1.4;
 }
 
 .keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
-.key-display {
-  background: #000; border: 2px solid var(--accent); color: var(--accent2);
-  font-size: 28px; text-align: center; padding: 10px; height: 35px; letter-spacing: 12px;
-}
+.key-display { background: #000; border: 2px solid var(--accent); color: var(--accent2); font-size: 24px; text-align: center; padding: 10px; height: 30px; letter-spacing: 12px; }
 
-.btn{
+.btn {
   padding:12px; border:none; background:var(--accent2); color:#061021; 
   font-weight:bold; cursor:pointer; box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
-  font-family: inherit; text-transform: uppercase;
+  font-family: inherit; text-transform: uppercase; width: 100%; margin-bottom: 5px;
 }
-.btn:hover { background: #fff; }
+.btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 rgba(0,0,0,0.5); }
 .btn-danger { background: var(--danger); color: white; }
 .btn-gold { background: var(--gold); color: #000; }
 
-#help{
-  position:absolute; right:20px; bottom:20px; color:var(--accent2); font-size:11px;
-  background: rgba(2,6,23,0.8); padding:8px; border:1px solid rgba(100,255,218,0.2);
+input[type="text"] {
+    width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box;
+    background: #000; color: var(--accent2); border: 2px solid var(--accent);
+    font-family: monospace; font-size: 16px; text-align: center;
+}
+
+/* Controles móviles */
+#mobile-controls {
+  display: flex; justify-content: center; gap: 10px; margin-top: 15px; width: 100%; padding: 10px;
+}
+.m-btn {
+  width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--accent2);
+  background: rgba(15, 23, 42, 0.8); color: white; font-size: 24px; font-weight: bold;
+  display: flex; align-items: center; justify-content: center; user-select: none;
+}
+.m-btn:active { background: var(--accent2); color: black; }
+
+@media (min-width: 768px) {
+    #mobile-controls { display: none; } /* Ocultar botones en PC */
+    canvas { max-height: none; }
 }
 </style>
 </head>
 <body>
 <div id="wrap">
+  
+  <div id="login-modal" style="display:block;">
+      <h2 style="text-align:center;">IDENTIFICACIÓN</h2>
+      <p style="text-align:center;">Ingrese su código para acceder al simulador.</p>
+      <input type="text" id="zip-input" placeholder="Ej: 101022026">
+      <button class="btn btn-gold" id="btn-login">VERIFICAR CÓDIGO</button>
+      <p id="login-msg" style="color:var(--danger); text-align:center; display:none;"></p>
+  </div>
+
   <canvas id="game"></canvas>
 
   <div id="hud">
@@ -90,347 +116,373 @@ canvas{
             <div class="key-display" id="key-screen"></div>
             <div class="keypad-grid" id="keypad-btns"></div>
         </div>
-        <div class="opts" id="modal-opts" style="display:flex; flex-direction:column; gap:10px;"></div>
+        <div class="opts" id="modal-opts" style="display:flex; flex-direction:column; gap:5px;"></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:15px;justify-content:center;">
-      <button class="btn btn-danger" id="modal-close">CERRAR</button>
+      <button class="btn btn-danger" id="modal-close" style="width:auto;">CERRAR</button>
     </div>
   </div>
 
-  <div id="help">MOVER: ← → | SALTAR: W / ESPACIO | CLIC: INTERACTUAR</div>
+  <div id="mobile-controls">
+      <div class="m-btn" id="btn-left">⬅️</div>
+      <div class="m-btn" id="btn-right">➡️</div>
+      <div class="m-btn" id="btn-jump">⬆️</div>
+      <div class="m-btn" id="btn-interact" style="border-color: var(--gold); margin-left:20px;">✋</div>
+  </div>
+
 </div>
 
-<script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+<script type="module">
+  // 1. Importaciones de Firebase actualizadas (Añadimos doc y getDoc)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
+  import { getFirestore, collection, doc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-const V_W = 640;
-const V_H = 360;
-const SCALE = 2; 
-const GROUND_Y = V_H - 60;
-canvas.width = V_W;
-canvas.height = V_H;
-canvas.style.width = (V_W * SCALE) + "px";
-canvas.style.height = (V_H * SCALE) + "px";
+  // 2. Configuración de Firebase
+  const firebaseConfig = {
+      apiKey: "AIzaSyCw4JnCCFHVogAEXncodxi9jnwigO7qUIA",
+      authDomain: "quimicaquest.firebaseapp.com",
+      projectId: "quimicaquest",
+      storageBucket: "quimicaquest.firebasestorage.app",
+      messagingSenderId: "796534851347",
+      appId: "1:796534851347:web:ae85716a8b612d889b3ce6",
+      measurementId: "G-XJP89X1R9K"
+  };
 
-// --- BANCO DE PREGUNTAS ---
-const QUESTION_POOLS = [
-  [ // Sala 1: Extrínsecas
-    { q: "¿Cuál de estas es una propiedad extrínseca?", opts: ["Masa", "Densidad", "Punto de fusión", "Color"], c: 0, def: "La MASA es extrínseca porque depende de la cantidad de materia." },
-    { q: "¿Qué propiedad mide el espacio que ocupa un cuerpo?", opts: ["Peso", "Volumen", "Dureza", "Brillo"], c: 1, def: "El VOLUMEN es una propiedad extrínseca de la extensión espacial." }
-  ],
-  [ // Sala 2: Intrínsecas
-    { q: "¿Cuál es una propiedad intrínseca (específica)?", opts: ["Volumen", "Masa", "Densidad", "Longitud"], c: 2, def: "La DENSIDAD identifica a la sustancia sin importar su cantidad." },
-    { q: "¿Qué propiedad es el punto de ebullición?", opts: ["Química", "Intrínseca", "Extrínseca", "General"], c: 1, def: "Es INTRÍNSECA; cada sustancia pura hierve a una temperatura fija." }
-  ],
-  [ // Sala 3: Químicas
-    { q: "¿Cuál es una propiedad química de la materia?", opts: ["Color", "Oxidación", "Dureza", "Punto de fusión"], c: 1, def: "La OXIDACIÓN transforma la materia en algo nuevo." },
-    { q: "¿Qué propiedad indica que algo puede arder?", opts: ["Combustión", "Densidad", "Masa", "Maleabilidad"], c: 0, def: "La COMBUSTIÓN es una propiedad química fundamental." }
-  ],
-  [ // Sala 4: Mecánicas
-    { q: "¿Qué propiedad permite formar hilos delgados?", opts: ["Dureza", "Ductilidad", "Maleabilidad", "Peso"], c: 1, def: "La DUCTILIDAD permite crear alambres o hilos metálicos." },
-    { q: "¿Qué propiedad permite formar láminas delgadas?", opts: ["Tenacidad", "Fragilidad", "Maleabilidad", "Densidad"], c: 2, def: "La MALEABILIDAD es la capacidad de convertirse en láminas." }
-  ]
-];
+  // 3. Inicializar Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const db = getFirestore(app);
 
-// --- Estado ---
-const player = { x: 60, y: GROUND_Y - 48, w: 24, h: 48, vx: 0, vy: 0, speed: 3.5, jumpForce: -11, gravity: 0.6, dir: 1, frame: 0, isMoving: false, isGrounded: true };
-const camera = { x: 0 };
-const terminals = [];
-const doors = [];
-const obstacles = [];
-const REAL_CODE = ['3','4','1','2'];
-let partialCode = ['-','-','-','-'];
-let solvedCount = 0;
-let modalOpen = false;
-let gameTime = 120; // 2 minutos
-let currentKeyInput = "";
+  // Variables globales del estudiante
+  let currentStudent = null;
 
-// --- Inicialización ---
-function initWorld() {
-  const ROOM_W = 600;
-  const GAP = 120;
-  for (let i = 0; i < 4; i++) {
-    const rx = i * (ROOM_W + GAP);
-    const pool = QUESTION_POOLS[i];
-    const randomQ = pool[Math.floor(Math.random() * pool.length)];
-    
-    terminals.push({ id: i, x: rx + 250, y: GROUND_Y - 80, w: 60, h: 40, solved: false, data: randomQ });
-    doors.push({ id: i, x: rx + ROOM_W + 40, y: GROUND_Y - 90, w: 40, h: 90, open: false, isFinal: (i === 3) });
-    
-    obstacles.push({ x: rx + 420, y: GROUND_Y - 35, w: 70, h: 35, type: 'table' });
-    if(i > 0) obstacles.push({ x: rx + 80, y: GROUND_Y - 45, w: 40, h: 45, type: 'box' });
-  }
-}
+  // --- LÓGICA DE AUTENTICACIÓN MEJORADA ---
+  document.getElementById('btn-login').addEventListener('click', async () => {
+      const codeStr = document.getElementById('zip-input').value.trim();
+      const msg = document.getElementById('login-msg');
+      if (!codeStr) return;
+      
+      msg.style.display = 'block';
+      msg.style.color = 'var(--accent2)';
+      msg.innerText = "Buscando en la base de datos...";
 
-// --- Renderizado ---
-function drawDecor() {
-    ctx.strokeStyle = "rgba(100, 255, 218, 0.08)";
-    for(let i=0; i<15; i++) {
-        const x = (i * 280 - camera.x * 0.3) % 2800;
-        const y = 50 + (i % 3) * 60;
-        ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.stroke();
-        ctx.beginPath(); ctx.ellipse(x, y, 16, 6, i, 0, Math.PI*2); ctx.stroke();
-    }
-    const opacity = (Math.sin(Date.now() / 150) + 1) / 8;
-    ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`;
-    ctx.fillRect(0, 0, V_W, V_H);
-}
+      try {
+          // Buscamos el documento directamente por su ID
+          const docRef = doc(db, "estudiantes", codeStr);
+          const docSnap = await getDoc(docRef);
 
-function drawPlayer() {
-  const px = player.x - camera.x;
-  const py = player.y;
-  
-  // Animación de balanceo
-  const swing = player.isMoving ? Math.sin(player.frame * 0.2) * 8 : 0;
-  const bounce = player.isMoving ? Math.abs(Math.cos(player.frame * 0.2)) * 3 : 0;
-
-  // --- PIERNAS ---
-  ctx.fillStyle = "#1e293b"; // Pantalones oscuros
-  // Pierna 1
-  ctx.fillRect(px + 4, py + 32 - bounce, 7, 16 + (player.isGrounded ? swing : 0));
-  // Pierna 2
-  ctx.fillRect(px + 13, py + 32 - bounce, 7, 16 - (player.isGrounded ? swing : 0));
-
-  // --- BRAZOS (Detrás) ---
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillRect(px + (player.dir === 1 ? -4 : 22), py + 14 - bounce, 6, 14 - swing/2);
-
-  // --- CUERPO (Bata Blanca) ---
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillRect(px, py + 10 - bounce, 24, 24);
-  // Detalle de la bata (cuello/botones)
-  ctx.fillStyle = "#cbd5e1";
-  ctx.fillRect(px + 11, py + 14 - bounce, 2, 18);
-
-  // --- BRAZOS (Delante) ---
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillRect(px + (player.dir === 1 ? 22 : -4), py + 14 - bounce, 6, 14 + swing/2);
-  // Manos
-  ctx.fillStyle = "#fdba74";
-  ctx.fillRect(px + (player.dir === 1 ? 22 : -4), py + 26 + swing/2 - bounce, 6, 4);
-
-  // --- CABEZA ---
-  // Cuello
-  ctx.fillStyle = "#fdba74";
-  ctx.fillRect(px + 8, py + 6 - bounce, 8, 4);
-  // Cara
-  ctx.fillRect(px + 4, py - 8 - bounce, 16, 16);
-  // Pelo (Científico loco)
-  ctx.fillStyle = "#94a3b8";
-  ctx.fillRect(px + 2, py - 10 - bounce, 20, 6);
-  ctx.fillRect(px + (player.dir === 1 ? 2 : 18), py - 6 - bounce, 4, 12);
-  
-  // Ojos / Lentes
-  ctx.fillStyle = "#000";
-  const eyeX = player.dir === 1 ? px + 14 : px + 6;
-  ctx.fillRect(eyeX, py - 2 - bounce, 4, 4); // Lente
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(eyeX + 1, py - 1 - bounce, 2, 2); // Brillo lente
-}
-
-function drawObstacles() {
-  obstacles.forEach(o => {
-    const ox = o.x - camera.x;
-    ctx.fillStyle = o.type === 'table' ? '#475569' : '#78350f';
-    ctx.fillRect(ox, o.y, o.w, o.h);
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.strokeRect(ox, o.y, o.w, o.h);
-  });
-}
-
-function drawTerminal(t) {
-  const tx = t.x - camera.x;
-  const blink = (Math.sin(Date.now() / 200) + 1) / 2;
-  ctx.fillStyle = '#1e293b'; ctx.fillRect(tx, t.y, t.w, t.h);
-  ctx.fillStyle = t.solved ? "#065f46" : "#000";
-  ctx.fillRect(tx + 4, t.y + 4, t.w - 8, t.h - 12);
-  if(!t.solved) {
-      ctx.strokeStyle = `rgba(0, 210, 255, ${blink})`;
-      ctx.lineWidth = 2; ctx.strokeRect(tx - 2, t.y - 2, t.w + 4, t.h + 4);
-  }
-}
-
-function drawDoor(d) {
-  const dx = d.x - camera.x;
-  ctx.fillStyle = d.open ? "#020617" : "#334155";
-  ctx.fillRect(dx, d.y, d.w, d.h);
-  ctx.strokeStyle = d.isFinal ? '#ffcc00' : '#00d2ff';
-  ctx.strokeRect(dx, d.y, d.w, d.h);
-}
-
-// --- Física ---
-function update() {
-  if (modalOpen || gameTime <= 0) return;
-
-  let nx = player.x;
-  player.isMoving = false;
-  if (keys['ArrowRight'] || keys['d']) { nx += player.speed; player.dir = 1; player.isMoving = true; }
-  if (keys['ArrowLeft'] || keys['a']) { nx -= player.speed; player.dir = -1; player.isMoving = true; }
-
-  if ((keys[' '] || keys['w'] || keys['ArrowUp']) && player.isGrounded) {
-    player.vy = player.jumpForce; player.isGrounded = false;
-  }
-
-  player.vy += player.gravity;
-  player.y += player.vy;
-
-  if (player.y + player.h > GROUND_Y) {
-    player.y = GROUND_Y - player.h; player.vy = 0; player.isGrounded = true;
-  }
-
-  obstacles.forEach(o => {
-      if (player.x + player.w > o.x && player.x < o.x + o.w) {
-          if (player.vy > 0 && player.y + player.h <= o.y + 10 && player.y + player.h + player.vy >= o.y) {
-              player.y = o.y - player.h; player.vy = 0; player.isGrounded = true;
+          if (docSnap.exists()) {
+              currentStudent = docSnap.data(); // Guardamos los datos (el nombre)
+              currentStudent.zipgrade = codeStr; // Añadimos el ID manualmente para poder guardarlo en el récord al final
+              console.log("¡Estudiante encontrado!", currentStudent); 
+              document.getElementById('login-modal').style.display = 'none';
+              showIntro(); // Inicia el juego
+          } else {
+              msg.style.color = 'var(--danger)';
+              msg.innerText = "Código no encontrado. Verifica los números.";
           }
-      }
-      if (player.y + player.h > o.y + 5 && player.y < o.y + o.h - 5) {
-          if (nx + player.w > o.x && nx < o.x + o.w) nx = player.x;
+      } catch (error) {
+          console.error("Error conectando a Firebase:", error);
+          msg.style.color = 'var(--danger)';
+          msg.innerText = "Error de conexión. Verifica la consola.";
       }
   });
 
-  player.x = nx;
-  doors.forEach(d => { if(!d.open && player.x + player.w > d.x && player.x < d.x + d.w) player.x = d.x - player.w; });
+  // --- LÓGICA DEL JUEGO ---
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
 
-  camera.x += (player.x - camera.x - V_W/3) * 0.1;
-  camera.x = Math.max(0, Math.min(camera.x, 2400));
-  player.frame++;
-}
+  const V_W = 640; const V_H = 360; const SCALE = 2; 
+  const GROUND_Y = V_H - 60;
+  canvas.width = V_W; canvas.height = V_H;
 
-// --- Temporizador ---
-setInterval(() => {
-    if(!modalOpen && gameTime > 0) {
-        gameTime--;
-        const m = Math.floor(gameTime / 60);
-        const s = gameTime % 60;
-        document.getElementById('time').innerText = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-        if(gameTime === 0) alert("EVACUACIÓN FALLIDA: EL LABORATORIO SE HA SELLADO.");
-    }
-}, 1000);
+  const QUESTION_POOLS = [
+    [ { q: "¿Cuál de estas es una propiedad extrínseca?", opts: ["Masa", "Densidad", "Punto de fusión", "Color"], c: 0, def: "La MASA es extrínseca porque depende de la cantidad de materia." },
+      { q: "¿Qué propiedad mide el espacio que ocupa un cuerpo?", opts: ["Peso", "Volumen", "Dureza", "Brillo"], c: 1, def: "El VOLUMEN es una propiedad extrínseca de la extensión espacial." } ],
+    [ { q: "¿Cuál es una propiedad intrínseca (específica)?", opts: ["Volumen", "Masa", "Densidad", "Longitud"], c: 2, def: "La DENSIDAD identifica a la sustancia sin importar su cantidad." },
+      { q: "¿Qué propiedad es el punto de ebullición?", opts: ["Química", "Intrínseca", "Extrínseca", "General"], c: 1, def: "Es INTRÍNSECA; cada sustancia pura hierve a una temperatura fija." } ],
+    [ { q: "¿Cuál es una propiedad química de la materia?", opts: ["Color", "Oxidación", "Dureza", "Punto de fusión"], c: 1, def: "La OXIDACIÓN transforma la materia en algo nuevo." },
+      { q: "¿Qué propiedad indica que algo puede arder?", opts: ["Combustión", "Densidad", "Masa", "Maleabilidad"], c: 0, def: "La COMBUSTIÓN es una propiedad química fundamental." } ],
+    [ { q: "¿Qué propiedad permite formar hilos delgados?", opts: ["Dureza", "Ductilidad", "Maleabilidad", "Peso"], c: 1, def: "La DUCTILIDAD permite crear alambres o hilos metálicos." },
+      { q: "¿Qué propiedad permite formar láminas delgadas?", opts: ["Tenacidad", "Fragilidad", "Maleabilidad", "Densidad"], c: 2, def: "La MALEABILIDAD es la capacidad de convertirse en láminas." } ]
+  ];
 
-// --- Modales ---
-function showIntro() {
-    modalOpen = true;
-    document.getElementById('modal').style.display = 'block';
-    document.getElementById('modal-title').innerText = "INFORME DE EMERGENCIA";
-    document.getElementById('modal-question').innerHTML = `
-        <div class="def-box">
-            <strong>Controles:</strong> Usa W o ESPACIO para saltar obstáculos.<br><br>
-            <strong>Intrínsecas:</strong> No dependen de la masa.<br>
-            <strong>Extrínsecas:</strong> Dependen de la cantidad.
-        </div>
-        <p style="color:red">PELIGRO: El reactor fallará en 2 minutos. ¡Rápido!</p>
-    `;
-    const opts = document.getElementById('modal-opts');
-    opts.innerHTML = '';
-    const b = document.createElement('button');
-    b.className = 'btn btn-gold'; b.innerText = "INICIAR MISIÓN";
-    b.onclick = closeModal;
-    opts.appendChild(b);
-}
+  const player = { x: 60, y: GROUND_Y - 48, w: 24, h: 48, vx: 0, vy: 0, speed: 3.5, jumpForce: -11, gravity: 0.6, dir: 1, frame: 0, isMoving: false, isGrounded: true };
+  const camera = { x: 0 };
+  const terminals = []; const doors = []; const obstacles = [];
+  const REAL_CODE = ['3','4','1','2'];
+  let partialCode = ['-','-','-','-'];
+  let solvedCount = 0;
+  let modalOpen = true; // Empieza true por el login
+  let gameTime = 120;
+  let currentKeyInput = "";
+  let isPlaying = false; 
 
-function openQuestion(id) {
-    modalOpen = true;
-    const t = terminals[id];
-    document.getElementById('modal').style.display = 'block';
-    document.getElementById('modal-title').innerText = `TERMINAL ${id+1}`;
-    document.getElementById('modal-question').innerText = t.data.q;
-    document.getElementById('keypad-container').style.display = 'none';
-    const optsDiv = document.getElementById('modal-opts');
-    optsDiv.style.display = 'flex'; optsDiv.innerHTML = '';
-    
-    t.data.opts.forEach((opt, i) => {
-        const b = document.createElement('button');
-        b.className = 'btn'; b.innerText = opt;
-        b.onclick = () => {
-            if (i === t.data.c) {
-                document.getElementById('modal-question').innerHTML = `
-                    <span style="color:var(--accent2)">ACCESO CONCEDIDO - DÍGITO: ${REAL_CODE[id]}</span>
-                    <div class="def-box">${t.data.def}</div>
-                `;
-                optsDiv.innerHTML = '';
-                const cb = document.createElement('button');
-                cb.className = 'btn btn-gold'; cb.innerText = "REGISTRAR";
-                cb.onclick = () => {
-                    t.solved = true; solvedCount++;
-                    partialCode[id] = REAL_CODE[id];
-                    document.getElementById('hud-progress').innerText = solvedCount;
-                    document.getElementById('hud-code').innerText = partialCode.join('');
-                    if (id < 3) doors[id].open = true;
-                    closeModal();
-                };
-                optsDiv.appendChild(cb);
-            } else { alert("ERROR DE AUTENTICACIÓN"); }
-        };
-        optsDiv.appendChild(b);
-    });
-}
+  // Variables para los botones táctiles
+  let tLeft = false, tRight = false, tJump = false;
 
-function openKeypad() {
-  modalOpen = true; currentKeyInput = "";
-  document.getElementById('modal').style.display = 'block';
-  document.getElementById('modal-title').innerText = "BLOQUEO FINAL";
-  document.getElementById('keypad-container').style.display = 'block';
-  document.getElementById('modal-opts').style.display = 'none';
-  const grid = document.getElementById('keypad-btns'); grid.innerHTML = '';
-  for(let i=1; i<=9; i++) createKey(i, grid);
-  createKey("C", grid, "btn-danger"); createKey(0, grid); createKey("OK", grid, "btn-gold");
-  updateKeyScreen();
-}
+  // --- SISTEMA DE AUDIO (Web Audio API) ---
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = new AudioContext();
 
-function createKey(val, container, extraClass = "") {
-    const b = document.createElement('button');
-    b.className = `btn ${extraClass}`; b.innerText = val;
-    b.onclick = () => {
-        if (val === "C") currentKeyInput = "";
-        else if (val === "OK") {
-            if (currentKeyInput === REAL_CODE.join('')) {
-                doors[3].open = true; alert("¡LABORATORIO EVACUADO!"); closeModal();
-            } else { alert("CÓDIGO INVÁLIDO"); currentKeyInput = ""; }
-        } else if (currentKeyInput.length < 4) currentKeyInput += val;
-        updateKeyScreen();
-    };
-    container.appendChild(b);
-}
-
-function updateKeyScreen() { document.getElementById('key-screen').innerText = currentKeyInput.padEnd(4, '_'); }
-function closeModal() { modalOpen = false; document.getElementById('modal').style.display = 'none'; }
-
-canvas.addEventListener('click', (e) => {
-  if (modalOpen) return;
-  const rect = canvas.getBoundingClientRect();
-  const clickX = (e.clientX - rect.left) / SCALE + camera.x;
-  const clickY = (e.clientY - rect.top) / SCALE;
-  terminals.forEach(t => {
-    if (clickX > t.x && clickX < t.x + t.w && clickY > t.y && clickY < t.y + t.h) if (!t.solved) openQuestion(t.id);
-  });
-  const lastDoor = doors[3];
-  if (clickX > lastDoor.x && clickX < lastDoor.x + lastDoor.w) {
-    if (solvedCount < 4) alert("ERROR: Faltan registros."); else openKeypad();
+  function playValidSound() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+      
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+      gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
   }
-});
 
-const keys = {};
-window.onkeydown = (e) => keys[e.key] = true;
-window.onkeyup = (e) => keys[e.key] = false;
-document.getElementById('modal-close').onclick = closeModal;
+  function initWorld() {
+    const ROOM_W = 600; const GAP = 120;
+    for (let i = 0; i < 4; i++) {
+      const rx = i * (ROOM_W + GAP);
+      const pool = QUESTION_POOLS[i];
+      const randomQ = pool[Math.floor(Math.random() * pool.length)];
+      terminals.push({ id: i, x: rx + 250, y: GROUND_Y - 80, w: 60, h: 40, solved: false, data: randomQ });
+      doors.push({ id: i, x: rx + ROOM_W + 40, y: GROUND_Y - 90, w: 40, h: 90, open: false, isFinal: (i === 3) });
+      obstacles.push({ x: rx + 420, y: GROUND_Y - 35, w: 70, h: 35, type: 'table' });
+      if(i > 0) obstacles.push({ x: rx + 80, y: GROUND_Y - 45, w: 40, h: 45, type: 'box' });
+    }
+  }
 
-function main() {
-    ctx.clearRect(0,0,V_W,V_H);
-    drawDecor();
-    ctx.fillStyle = "#1e293b"; ctx.fillRect(0, GROUND_Y, V_W, 60);
-    drawObstacles();
-    terminals.forEach(drawTerminal);
-    doors.forEach(drawDoor);
-    drawPlayer();
-    update();
-    requestAnimationFrame(main);
-}
+  function drawDecor() {
+      ctx.strokeStyle = "rgba(100, 255, 218, 0.08)";
+      for(let i=0; i<15; i++) {
+          const x = (i * 280 - camera.x * 0.3) % 2800;
+          const y = 50 + (i % 3) * 60;
+          ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.stroke();
+      }
+      const opacity = (Math.sin(Date.now() / 150) + 1) / 8;
+      ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`; ctx.fillRect(0, 0, V_W, V_H);
+  }
 
-initWorld();
-window.onload = showIntro;
-main();
+  function drawPlayer() {
+    const px = player.x - camera.x; const py = player.y;
+    const swing = player.isMoving ? Math.sin(player.frame * 0.2) * 8 : 0;
+    const bounce = player.isMoving ? Math.abs(Math.cos(player.frame * 0.2)) * 3 : 0;
+    ctx.fillStyle = "#1e293b"; ctx.fillRect(px + 4, py + 32 - bounce, 7, 16 + (player.isGrounded ? swing : 0)); ctx.fillRect(px + 13, py + 32 - bounce, 7, 16 - (player.isGrounded ? swing : 0));
+    ctx.fillStyle = "#f8fafc"; ctx.fillRect(px + (player.dir === 1 ? -4 : 22), py + 14 - bounce, 6, 14 - swing/2);
+    ctx.fillRect(px, py + 10 - bounce, 24, 24); ctx.fillStyle = "#cbd5e1"; ctx.fillRect(px + 11, py + 14 - bounce, 2, 18);
+    ctx.fillStyle = "#f8fafc"; ctx.fillRect(px + (player.dir === 1 ? 22 : -4), py + 14 - bounce, 6, 14 + swing/2);
+    ctx.fillStyle = "#fdba74"; ctx.fillRect(px + (player.dir === 1 ? 22 : -4), py + 26 + swing/2 - bounce, 6, 4);
+    ctx.fillRect(px + 8, py + 6 - bounce, 8, 4); ctx.fillRect(px + 4, py - 8 - bounce, 16, 16);
+    ctx.fillStyle = "#94a3b8"; ctx.fillRect(px + 2, py - 10 - bounce, 20, 6); ctx.fillRect(px + (player.dir === 1 ? 2 : 18), py - 6 - bounce, 4, 12);
+    ctx.fillStyle = "#000"; const eyeX = player.dir === 1 ? px + 14 : px + 6; ctx.fillRect(eyeX, py - 2 - bounce, 4, 4); ctx.fillStyle = "#fff"; ctx.fillRect(eyeX + 1, py - 1 - bounce, 2, 2);
+  }
+
+  function drawObstacles() { obstacles.forEach(o => { ctx.fillStyle = o.type === 'table' ? '#475569' : '#78350f'; ctx.fillRect(o.x - camera.x, o.y, o.w, o.h); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.strokeRect(o.x - camera.x, o.y, o.w, o.h); }); }
+  function drawTerminal(t) { const tx = t.x - camera.x; const blink = (Math.sin(Date.now() / 200) + 1) / 2; ctx.fillStyle = '#1e293b'; ctx.fillRect(tx, t.y, t.w, t.h); ctx.fillStyle = t.solved ? "#065f46" : "#000"; ctx.fillRect(tx + 4, t.y + 4, t.w - 8, t.h - 12); if(!t.solved) { ctx.strokeStyle = `rgba(0, 210, 255, ${blink})`; ctx.lineWidth = 2; ctx.strokeRect(tx - 2, t.y - 2, t.w + 4, t.h + 4); } }
+  function drawDoor(d) { const dx = d.x - camera.x; ctx.fillStyle = d.open ? "#020617" : "#334155"; ctx.fillRect(dx, d.y, d.w, d.h); ctx.strokeStyle = d.isFinal ? '#ffcc00' : '#00d2ff'; ctx.strokeRect(dx, d.y, d.w, d.h); }
+
+  function update() {
+    if (modalOpen || gameTime <= 0 || !isPlaying) return;
+
+    let nx = player.x; player.isMoving = false;
+    
+    // Combina teclas de teclado y botones móviles
+    if (keys['ArrowRight'] || keys['d'] || tRight) { nx += player.speed; player.dir = 1; player.isMoving = true; }
+    if (keys['ArrowLeft'] || keys['a'] || tLeft) { nx -= player.speed; player.dir = -1; player.isMoving = true; }
+    if ((keys[' '] || keys['w'] || keys['ArrowUp'] || tJump) && player.isGrounded) {
+      player.vy = player.jumpForce; player.isGrounded = false;
+    }
+
+    player.vy += player.gravity; player.y += player.vy;
+    if (player.y + player.h > GROUND_Y) { player.y = GROUND_Y - player.h; player.vy = 0; player.isGrounded = true; }
+
+    obstacles.forEach(o => {
+        if (player.x + player.w > o.x && player.x < o.x + o.w) {
+            if (player.vy > 0 && player.y + player.h <= o.y + 10 && player.y + player.h + player.vy >= o.y) {
+                player.y = o.y - player.h; player.vy = 0; player.isGrounded = true;
+            }
+        }
+        if (player.y + player.h > o.y + 5 && player.y < o.y + o.h - 5) {
+            if (nx + player.w > o.x && nx < o.x + o.w) nx = player.x;
+        }
+    });
+
+    player.x = nx;
+    doors.forEach(d => { if(!d.open && player.x + player.w > d.x && player.x < d.x + d.w) player.x = d.x - player.w; });
+    camera.x += (player.x - camera.x - V_W/3) * 0.1; camera.x = Math.max(0, Math.min(camera.x, 2400));
+    player.frame++;
+  }
+
+  setInterval(() => {
+      if(!modalOpen && gameTime > 0 && isPlaying) {
+          gameTime--;
+          const m = Math.floor(gameTime / 60); const s = gameTime % 60;
+          document.getElementById('time').innerText = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+          if(gameTime === 0) alert("EVACUACIÓN FALLIDA: EL LABORATORIO SE HA SELLADO.");
+      }
+  }, 1000);
+
+  function showIntro() {
+      modalOpen = true;
+      document.getElementById('modal').style.display = 'block';
+      document.getElementById('modal-title').innerText = `BIENVENIDO, ${currentStudent?.nombre || 'ESTUDIANTE'}`;
+      document.getElementById('modal-question').innerHTML = `
+          <div class="def-box">
+              <strong>Móvil:</strong> Usa los botones en pantalla para moverte y la MANO para interactuar con las computadoras.<br><br>
+              <strong>PC:</strong> Mover: ← → | Saltar: W | Clic: Interactuar
+          </div>
+          <p style="color:red">PELIGRO: El reactor fallará en 2 minutos. ¡Rápido!</p>
+      `;
+      const opts = document.getElementById('modal-opts'); opts.innerHTML = '';
+      const b = document.createElement('button'); b.className = 'btn btn-gold'; b.innerText = "INICIAR MISIÓN";
+      b.onclick = () => { isPlaying = true; closeModal(); };
+      opts.appendChild(b);
+  }
+
+  function openQuestion(id) {
+      modalOpen = true; const t = terminals[id];
+      document.getElementById('modal').style.display = 'block';
+      document.getElementById('modal-title').innerText = `TERMINAL ${id+1}`;
+      document.getElementById('modal-question').innerText = t.data.q;
+      document.getElementById('keypad-container').style.display = 'none';
+      const optsDiv = document.getElementById('modal-opts'); optsDiv.style.display = 'flex'; optsDiv.innerHTML = '';
+      
+      t.data.opts.forEach((opt, i) => {
+          const b = document.createElement('button'); b.className = 'btn'; b.innerText = opt;
+          b.onclick = () => {
+              if (i === t.data.c) {
+                  document.getElementById('modal-question').innerHTML = `<span style="color:var(--accent2)">ACCESO CONCEDIDO - DÍGITO: ${REAL_CODE[id]}</span><div class="def-box">${t.data.def}</div>`;
+                  optsDiv.innerHTML = '';
+                  const cb = document.createElement('button'); cb.className = 'btn btn-gold'; cb.innerText = "REGISTRAR";
+                  
+                  // AL REGISTRAR, SE EJECUTA EL SONIDO
+                  cb.onclick = () => {
+                      playValidSound(); 
+                      t.solved = true; solvedCount++; partialCode[id] = REAL_CODE[id];
+                      document.getElementById('hud-progress').innerText = solvedCount;
+                      document.getElementById('hud-code').innerText = partialCode.join('');
+                      if (id < 3) doors[id].open = true;
+                      closeModal();
+                  };
+                  optsDiv.appendChild(cb);
+              } else { alert("ERROR DE AUTENTICACIÓN"); }
+          };
+          optsDiv.appendChild(b);
+      });
+  }
+
+  function openKeypad() {
+      modalOpen = true; currentKeyInput = "";
+      document.getElementById('modal').style.display = 'block';
+      document.getElementById('modal-title').innerText = "BLOQUEO FINAL";
+      document.getElementById('keypad-container').style.display = 'block';
+      document.getElementById('modal-opts').style.display = 'none';
+      const grid = document.getElementById('keypad-btns'); grid.innerHTML = '';
+      for(let i=1; i<=9; i++) createKey(i, grid);
+      createKey("C", grid, "btn-danger"); createKey(0, grid); createKey("OK", grid, "btn-gold");
+      updateKeyScreen();
+  }
+
+  function createKey(val, container, extraClass = "") {
+      const b = document.createElement('button'); b.className = `btn ${extraClass}`; b.innerText = val;
+      b.onclick = async () => {
+          if (val === "C") currentKeyInput = "";
+          else if (val === "OK") {
+              if (currentKeyInput === REAL_CODE.join('')) {
+                  doors[3].open = true; 
+                  alert("¡CÓDIGO CORRECTO! Guardando récord...");
+                  
+                  // GUARDAR RÉCORD EN FIREBASE
+                  try {
+                      await addDoc(collection(db, "records"), {
+                          juego: "scape_materia",
+                          estudiante_id: currentStudent?.zipgrade || "Anon",
+                          nombre: currentStudent?.nombre || "Anónimo",
+                          tiempoRestante: gameTime,
+                          fecha: new Date().toISOString()
+                      });
+                      alert("¡RÉCORD GUARDADO! LABORATORIO EVACUADO.");
+                  } catch (e) {
+                      console.error("Error guardando:", e);
+                      alert("Laboratorio evacuado, pero hubo un error guardando tu puntaje.");
+                  }
+                  closeModal();
+              } else { alert("CÓDIGO INVÁLIDO"); currentKeyInput = ""; }
+          } else if (currentKeyInput.length < 4) currentKeyInput += val;
+          updateKeyScreen();
+      };
+      container.appendChild(b);
+  }
+
+  function updateKeyScreen() { document.getElementById('key-screen').innerText = currentKeyInput.padEnd(4, '_'); }
+  function closeModal() { modalOpen = false; document.getElementById('modal').style.display = 'none'; }
+
+  // --- INTERACCIÓN CON BOTÓN MÓVIL ---
+  function tryInteract() {
+      terminals.forEach(t => {
+          if (player.x + player.w > t.x - 20 && player.x < t.x + t.w + 20) {
+              if (!t.solved) openQuestion(t.id);
+          }
+      });
+      const lastDoor = doors[3];
+      if (player.x + player.w > lastDoor.x - 20 && player.x < lastDoor.x + lastDoor.w + 20) {
+          if (solvedCount < 4) alert("ERROR: Faltan registros."); else openKeypad();
+      }
+  }
+
+  // --- LISTENERS MÓVILES ---
+  const btnLeft = document.getElementById('btn-left');
+  const btnRight = document.getElementById('btn-right');
+  const btnJump = document.getElementById('btn-jump');
+  const btnInteract = document.getElementById('btn-interact');
+
+  btnLeft.addEventListener('touchstart', (e)=>{e.preventDefault(); tLeft = true;});
+  btnLeft.addEventListener('touchend', (e)=>{e.preventDefault(); tLeft = false;});
+  btnRight.addEventListener('touchstart', (e)=>{e.preventDefault(); tRight = true;});
+  btnRight.addEventListener('touchend', (e)=>{e.preventDefault(); tRight = false;});
+  btnJump.addEventListener('touchstart', (e)=>{e.preventDefault(); tJump = true;});
+  btnJump.addEventListener('touchend', (e)=>{e.preventDefault(); tJump = false;});
+  btnInteract.addEventListener('touchstart', (e)=>{e.preventDefault(); tryInteract();});
+
+  // --- LISTENERS PC ---
+  canvas.addEventListener('click', (e) => {
+      if (modalOpen) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clickX = (e.clientX - rect.left) * scaleX + camera.x;
+      const clickY = (e.clientY - rect.top) * scaleY;
+      
+      terminals.forEach(t => {
+        if (clickX > t.x && clickX < t.x + t.w && clickY > t.y && clickY < t.y + t.h) if (!t.solved) openQuestion(t.id);
+      });
+      const lastDoor = doors[3];
+      if (clickX > lastDoor.x && clickX < lastDoor.x + lastDoor.w) {
+        if (solvedCount < 4) alert("ERROR: Faltan registros."); else openKeypad();
+      }
+  });
+
+  const keys = {};
+  window.onkeydown = (e) => keys[e.key] = true;
+  window.onkeyup = (e) => keys[e.key] = false;
+  document.getElementById('modal-close').onclick = closeModal;
+
+  // --- BUCLE PRINCIPAL ---
+  function main() {
+      ctx.clearRect(0,0,V_W,V_H); drawDecor();
+      ctx.fillStyle = "#1e293b"; ctx.fillRect(0, GROUND_Y, V_W, 60);
+      drawObstacles(); terminals.forEach(drawTerminal); doors.forEach(drawDoor); drawPlayer();
+      update(); requestAnimationFrame(main);
+  }
+
+  initWorld();
+  main();
 </script>
 </body>
 </html>
