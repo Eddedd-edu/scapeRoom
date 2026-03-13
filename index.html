@@ -18,7 +18,6 @@
 html,body{height:100%; margin:0; background:var(--bg); font-family: monospace; overflow: hidden; color: var(--text); touch-action: none;}
 #wrap{position:relative; height:100vh; display:flex; align-items:center; justify-content:center; flex-direction: column;}
 
-/* Adaptación del canvas para móviles */
 canvas{
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -26,9 +25,19 @@ canvas{
   border: 4px solid #1e293b;
   box-shadow: 0 0 30px rgba(255, 0, 0, 0.2);
   max-width: 100%;
-  max-height: 70vh; /* Deja espacio para los botones en móviles */
+  max-height: 70vh;
   object-fit: contain;
+  transition: box-shadow 0.3s;
 }
+
+/* Efecto visual de daño/alerta */
+#damage-overlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(255, 0, 0, 0); pointer-events: none; z-index: 5;
+  transition: background 0.2s;
+}
+.critical-alert { box-shadow: 0 0 50px rgba(255, 0, 0, 0.8) !important; animation: pulse 1s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 20px red; } 50% { box-shadow: 0 0 60px red; } 100% { box-shadow: 0 0 20px red; } }
 
 #hud{
   position:absolute; left:10px; top:10px;
@@ -36,7 +45,8 @@ canvas{
   padding:10px; border-radius:4px;
   backdrop-filter: blur(5px); z-index: 10;
 }
-#timer-box { font-size: 18px; color: var(--danger); font-weight: bold; margin-bottom: 5px; text-shadow: 0 0 8px red;}
+#timer-box { font-size: 18px; color: var(--danger); font-weight: bold; margin-bottom: 5px; text-shadow: 0 0 8px red; transition: color 0.3s;}
+.time-penalty { color: white !important; text-shadow: 0 0 15px white !important; }
 
 #modal, #login-modal {
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
@@ -70,25 +80,27 @@ input[type="text"] {
     font-family: monospace; font-size: 16px; text-align: center;
 }
 
-/* Controles móviles */
+/* Controles móviles mejorados */
 #mobile-controls {
-  display: flex; justify-content: center; gap: 10px; margin-top: 15px; width: 100%; padding: 10px;
+  display: flex; justify-content: center; gap: 15px; margin-top: 15px; width: 100%; padding: 10px;
 }
 .m-btn {
-  width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--accent2);
-  background: rgba(15, 23, 42, 0.8); color: white; font-size: 24px; font-weight: bold;
+  width: 65px; height: 65px; border-radius: 50%; border: 2px solid var(--accent2);
+  background: rgba(15, 23, 42, 0.8); color: white; font-size: 28px; font-weight: bold;
   display: flex; align-items: center; justify-content: center; user-select: none;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
-.m-btn:active { background: var(--accent2); color: black; }
+.m-btn:active { background: var(--accent2); color: black; transform: scale(0.95); }
 
 @media (min-width: 768px) {
-    #mobile-controls { display: none; } /* Ocultar botones en PC */
+    #mobile-controls { display: none; }
     canvas { max-height: none; }
 }
 </style>
 </head>
 <body>
 <div id="wrap">
+  <div id="damage-overlay"></div>
   
   <div id="login-modal" style="display:block;">
       <h2 style="text-align:center;">IDENTIFICACIÓN</h2>
@@ -106,6 +118,7 @@ input[type="text"] {
     <div style="margin-top:8px; border-top:1px solid #450a0a; padding-top:4px;">
       CÓDIGO: <span id="hud-code" style="color:var(--accent2); font-weight:bold;">----</span>
     </div>
+    <div id="hud-isotope" style="color:#64ffda; margin-top:4px; display:none;">☢️ ISÓTOPO RECUPERADO</div>
   </div>
 
   <div id="modal">
@@ -133,12 +146,10 @@ input[type="text"] {
 </div>
 
 <script type="module">
-  // 1. Importaciones de Firebase actualizadas (Añadimos doc y getDoc)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
   import { getFirestore, collection, doc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-  // 2. Configuración de Firebase
   const firebaseConfig = {
       apiKey: "AIzaSyCw4JnCCFHVogAEXncodxi9jnwigO7qUIA",
       authDomain: "quimicaquest.firebaseapp.com",
@@ -149,15 +160,12 @@ input[type="text"] {
       measurementId: "G-XJP89X1R9K"
   };
 
-  // 3. Inicializar Firebase
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
   const db = getFirestore(app);
 
-  // Variables globales del estudiante
   let currentStudent = null;
 
-  // --- LÓGICA DE AUTENTICACIÓN MEJORADA ---
   document.getElementById('btn-login').addEventListener('click', async () => {
       const codeStr = document.getElementById('zip-input').value.trim();
       const msg = document.getElementById('login-msg');
@@ -168,16 +176,14 @@ input[type="text"] {
       msg.innerText = "Buscando en la base de datos...";
 
       try {
-          // Buscamos el documento directamente por su ID
           const docRef = doc(db, "estudiantes", codeStr);
           const docSnap = await getDoc(docRef);
 
           if (docSnap.exists()) {
-              currentStudent = docSnap.data(); // Guardamos los datos (el nombre)
-              currentStudent.zipgrade = codeStr; // Añadimos el ID manualmente para poder guardarlo en el récord al final
-              console.log("¡Estudiante encontrado!", currentStudent); 
+              currentStudent = docSnap.data(); 
+              currentStudent.zipgrade = codeStr; 
               document.getElementById('login-modal').style.display = 'none';
-              showIntro(); // Inicia el juego
+              showIntro(); 
           } else {
               msg.style.color = 'var(--danger)';
               msg.innerText = "Código no encontrado. Verifica los números.";
@@ -189,7 +195,6 @@ input[type="text"] {
       }
   });
 
-  // --- LÓGICA DEL JUEGO ---
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
 
@@ -198,72 +203,91 @@ input[type="text"] {
   canvas.width = V_W; canvas.height = V_H;
 
   const QUESTION_POOLS = [
-    [ // TERMINAL 1: Propiedades Generales / Extrínsecas
-      { q: "¿Qué propiedad explica la resistencia de un cuerpo a cambiar su estado de reposo o movimiento?", opts: ["Inercia", "Impenetrabilidad", "Densidad", "Volumen"], c: 0, def: "La INERCIA es una propiedad general; a mayor masa, mayor inercia." },
-      { q: "¿Por qué dos cuerpos no pueden ocupar el mismo espacio simultáneamente?", opts: ["Porcelana", "Impenetrabilidad", "Tenacidad", "Elasticidad"], c: 1, def: "La IMPENETRABILIDAD es una propiedad extrínseca de toda la materia." },
-      { q: "A diferencia de la masa, ¿qué propiedad varía dependiendo de la gravedad del planeta?", opts: ["Volumen", "Inercia", "Peso", "Punto de fusión"], c: 2, def: "El PESO es una fuerza que depende de la gravedad, mientras que la masa es constante." },
-      { q: "¿Qué propiedad general describe los espacios intermoleculares vacíos en la materia?", opts: ["Porosidad", "Densidad", "Compresibilidad", "Volumen"], c: 0, def: "La POROSIDAD indica que toda materia tiene espacios vacíos entre sus partículas." }
+    [ 
+      { q: "¿Qué propiedad explica la resistencia de un cuerpo a cambiar su estado de reposo o movimiento?", opts: ["Inercia", "Impenetrabilidad", "Densidad", "Volumen"], c: 0, def: "🪐 La INERCIA es una propiedad general; a mayor masa, mayor inercia." },
+      { q: "¿Por qué dos cuerpos no pueden ocupar el mismo espacio simultáneamente?", opts: ["Porcelana", "Impenetrabilidad", "Tenacidad", "Elasticidad"], c: 1, def: "🧱 La IMPENETRABILIDAD es una propiedad extrínseca de toda la materia." },
+      { q: "A diferencia de la masa, ¿qué propiedad varía dependiendo de la gravedad del planeta?", opts: ["Volumen", "Inercia", "Peso", "Punto de fusión"], c: 2, def: "⚖️ El PESO es una fuerza que depende de la gravedad, mientras que la masa es constante." },
+      { q: "¿Qué propiedad general describe los espacios intermoleculares vacíos en la materia?", opts: ["Porosidad", "Densidad", "Compresibilidad", "Volumen"], c: 0, def: "🧽 La POROSIDAD indica que toda materia tiene espacios vacíos entre sus partículas." }
     ],
-    [ // TERMINAL 2: Propiedades Intrínsecas / Físicas
-      { q: "Si cortas un bloque de hierro a la mitad, ¿qué propiedad se mantiene exactamente igual?", opts: ["Volumen", "Masa", "Peso", "Densidad"], c: 3, def: "La DENSIDAD es intensiva/intrínseca; la relación masa/volumen no cambia al dividir la muestra." },
-      { q: "La temperatura a la cual la presión de vapor del sólido iguala a la del líquido es...", opts: ["Punto de ebullición", "Punto de fusión", "Calor específico", "Conductividad"], c: 1, def: "Es el PUNTO DE FUSIÓN, una propiedad física específica de cada sustancia pura." },
-      { q: "La capacidad de una sustancia de disolverse en otra a una temperatura determinada es:", opts: ["Miscibilidad", "Densidad", "Solubilidad", "Viscosidad"], c: 2, def: "La SOLUBILIDAD es una propiedad física intrínseca que depende del soluto, solvente y temperatura." },
-      { q: "¿Qué propiedad permite a los metales oponer baja resistencia al paso de electrones?", opts: ["Ductilidad", "Conductividad eléctrica", "Electronegatividad", "Calor específico"], c: 1, def: "La CONDUCTIVIDAD ELÉCTRICA es la capacidad de permitir el flujo de corriente." }
+    [ 
+      { q: "Si cortas un bloque de hierro a la mitad, ¿qué propiedad se mantiene exactamente igual?", opts: ["Volumen", "Masa", "Peso", "Densidad"], c: 3, def: "🧊 La DENSIDAD es intensiva/intrínseca; la relación masa/volumen no cambia al dividir la muestra." },
+      { q: "La temperatura a la cual la presión de vapor del sólido iguala a la del líquido es...", opts: ["Punto de ebullición", "Punto de fusión", "Calor específico", "Conductividad"], c: 1, def: "🌡️ Es el PUNTO DE FUSIÓN, una propiedad física específica de cada sustancia pura." },
+      { q: "La capacidad de una sustancia de disolverse en otra a una temperatura determinada es:", opts: ["Miscibilidad", "Densidad", "Solubilidad", "Viscosidad"], c: 2, def: "💧 La SOLUBILIDAD es una propiedad física intrínseca que depende del soluto, solvente y temperatura." },
+      { q: "¿Qué propiedad permite a los metales oponer baja resistencia al paso de electrones?", opts: ["Ductilidad", "Conductividad eléctrica", "Electronegatividad", "Calor específico"], c: 1, def: "⚡ La CONDUCTIVIDAD ELÉCTRICA es la capacidad de permitir el flujo de corriente." }
     ],
-    [ // TERMINAL 3: Propiedades Químicas
-      { q: "La pérdida de electrones de un átomo al interactuar con el oxígeno se denomina:", opts: ["Reducción", "Combustión", "Oxidación", "Electrólisis"], c: 2, def: "La OXIDACIÓN es una propiedad química donde hay transferencia de electrones." },
-      { q: "La tendencia de un elemento a combinarse con otros para alcanzar estabilidad electrónica es su...", opts: ["Reactividad", "Electronegatividad", "Afinidad electrónica", "Energía de ionización"], c: 0, def: "La REACTIVIDAD química define cómo y con qué otras sustancias reaccionará un material." },
-      { q: "¿Qué propiedad química requiere de una sustancia inflamable, oxígeno y una energía de activación?", opts: ["Combustión", "Corrosión", "Putrefacción", "Fermentación"], c: 0, def: "La COMBUSTIÓN es una reacción de oxidación rápida que libera luz y calor." },
-      { q: "La capacidad de una sustancia de liberar iones H+ en una solución acuosa define su:", opts: ["Alcalinidad", "Acidez", "Basicidad", "Neutralidad"], c: 1, def: "La ACIDEZ es una propiedad química clave en las reacciones ácido-base." }
+    [ 
+      { q: "La pérdida de electrones de un átomo al interactuar con el oxígeno se denomina:", opts: ["Reducción", "Combustión", "Oxidación", "Electrólisis"], c: 2, def: "🍎 La OXIDACIÓN es una propiedad química donde hay transferencia de electrones." },
+      { q: "La tendencia de un elemento a combinarse con otros para alcanzar estabilidad electrónica es su...", opts: ["Reactividad", "Electronegatividad", "Afinidad electrónica", "Energía de ionización"], c: 0, def: "🔄 La REACTIVIDAD química define cómo y con qué otras sustancias reaccionará un material." },
+      { q: "¿Qué propiedad química requiere de una sustancia inflamable, oxígeno y una energía de activación?", opts: ["Combustión", "Corrosión", "Putrefacción", "Fermentación"], c: 0, def: "🔥 La COMBUSTIÓN es una reacción de oxidación rápida que libera luz y calor." },
+      { q: "La capacidad de una sustancia de liberar iones H+ en una solución acuosa define su:", opts: ["Alcalinidad", "Acidez", "Basicidad", "Neutralidad"], c: 1, def: "🍋 La ACIDEZ es una propiedad química clave en las reacciones ácido-base." }
     ],
-    [ // TERMINAL 4: Propiedades Mecánicas y Fluidos
-      { q: "La resistencia que opone un material a ser roto, molido o doblado se conoce como:", opts: ["Dureza", "Tenacidad", "Fragilidad", "Elasticidad"], c: 1, def: "La TENACIDAD es la energía que absorbe un material antes de romperse." },
-      { q: "En la escala de Mohs, ¿qué propiedad evalúa la resistencia a ser rayado?", opts: ["Dureza", "Tenacidad", "Cohesión", "Adherencia"], c: 0, def: "La DUREZA (como la del diamante) mide la resistencia superficial al rayado." },
-      { q: "La capacidad de un material de recuperar su forma original tras cesar la fuerza deformante es:", opts: ["Plasticidad", "Maleabilidad", "Elasticidad", "Viscosidad"], c: 2, def: "La ELASTICIDAD es típica de resortes y gomas, oponiéndose a la deformación permanente." },
-      { q: "La resistencia interna que opone un fluido a fluir libremente se denomina:", opts: ["Tensión superficial", "Densidad", "Capilaridad", "Viscosidad"], c: 3, def: "La VISCOSIDAD (ej. la miel) depende de las fuerzas de cohesión entre las moléculas del fluido." }
+    [ 
+      { q: "La resistencia que opone un material a ser roto, molido o doblado se conoce como:", opts: ["Dureza", "Tenacidad", "Fragilidad", "Elasticidad"], c: 1, def: "🛡️ La TENACIDAD es la energía que absorbe un material antes de romperse." },
+      { q: "En la escala de Mohs, ¿qué propiedad evalúa la resistencia a ser rayado?", opts: ["Dureza", "Tenacidad", "Cohesión", "Adherencia"], c: 0, def: "💎 La DUREZA (como la del diamante) mide la resistencia superficial al rayado." },
+      { q: "La capacidad de un material de recuperar su forma original tras cesar la fuerza deformante es:", opts: ["Plasticidad", "Maleabilidad", "Elasticidad", "Viscosidad"], c: 2, def: "🏹 La ELASTICIDAD es típica de resortes y gomas, oponiéndose a la deformación permanente." },
+      { q: "La resistencia interna que opone un fluido a fluir libremente se denomina:", opts: ["Tensión superficial", "Densidad", "Capilaridad", "Viscosidad"], c: 3, def: "🍯 La VISCOSIDAD (ej. la miel) depende de las fuerzas de cohesión entre las moléculas del fluido." }
     ]
   ];
 
   const player = { x: 60, y: GROUND_Y - 48, w: 24, h: 48, vx: 0, vy: 0, speed: 3.5, jumpForce: -11, gravity: 0.6, dir: 1, frame: 0, isMoving: false, isGrounded: true };
   const camera = { x: 0 };
   const terminals = []; const doors = []; const obstacles = [];
-  const REAL_CODE = ['3','4','1','2'];
+  
+  // MEJORA: Código y elemento aleatorio
+  const REAL_CODE = [];
   let partialCode = ['-','-','-','-'];
   let solvedCount = 0;
-  let modalOpen = true; // Empieza true por el login
+  let modalOpen = true; 
   let gameTime = 120;
   let currentKeyInput = "";
   let isPlaying = false; 
+  
+  // MEJORA: Objeto inestable
+  let isotope = { x: 0, y: GROUND_Y - 30, w: 20, h: 20, collected: false };
 
-  // Variables para los botones táctiles
   let tLeft = false, tRight = false, tJump = false;
 
-  // --- SISTEMA DE AUDIO (Web Audio API) ---
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   const audioCtx = new AudioContext();
+
+  // Función de vibración móvil (si es soportada)
+  function vibrate(ms) {
+      if (navigator.vibrate) navigator.vibrate(ms);
+  }
 
   function playValidSound() {
       if (audioCtx.state === 'suspended') audioCtx.resume();
       const osc = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
-      
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-      osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
-      
+      osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+      osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); 
       gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
       gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
       gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
-      
       osc.connect(gainNode);
       gainNode.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.3);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+  }
+
+  function triggerDamage() {
+      vibrate([100, 50, 100]); // Patrón de vibración de error
+      const overlay = document.getElementById('damage-overlay');
+      overlay.style.background = 'rgba(255, 0, 0, 0.4)';
+      const tBox = document.getElementById('timer-box');
+      tBox.classList.add('time-penalty');
+      setTimeout(() => { 
+          overlay.style.background = 'rgba(255, 0, 0, 0)'; 
+          tBox.classList.remove('time-penalty');
+      }, 300);
   }
 
   function initWorld() {
     const ROOM_W = 600; const GAP = 120;
     for (let i = 0; i < 4; i++) {
+      // Generar código aleatorio por cada sala
+      REAL_CODE.push(Math.floor(Math.random() * 9 + 1).toString());
+
       const rx = i * (ROOM_W + GAP);
       const pool = QUESTION_POOLS[i];
       const randomQ = pool[Math.floor(Math.random() * pool.length)];
@@ -272,16 +296,33 @@ input[type="text"] {
       obstacles.push({ x: rx + 420, y: GROUND_Y - 35, w: 70, h: 35, type: 'table' });
       if(i > 0) obstacles.push({ x: rx + 80, y: GROUND_Y - 45, w: 40, h: 45, type: 'box' });
     }
+    // Posicionar el isótopo en la última sala
+    isotope.x = 3 * (ROOM_W + GAP) + 150;
   }
 
   function drawDecor() {
-      ctx.strokeStyle = "rgba(100, 255, 218, 0.08)";
-      for(let i=0; i<15; i++) {
-          const x = (i * 280 - camera.x * 0.3) % 2800;
-          const y = 50 + (i % 3) * 60;
-          ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.stroke();
+      // MEJORA: Parallax en el fondo
+      ctx.strokeStyle = "rgba(100, 255, 218, 0.05)";
+      for(let i=0; i<20; i++) {
+          const x = (i * 200 - camera.x * 0.2) % 2800; // Capa lejana
+          const y = 30 + (i % 4) * 50;
+          ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI*2); ctx.stroke();
       }
-      const opacity = (Math.sin(Date.now() / 150) + 1) / 8;
+      ctx.strokeStyle = "rgba(100, 255, 218, 0.1)";
+      for(let i=0; i<15; i++) {
+          const x = (i * 280 - camera.x * 0.5) % 2800; // Capa media
+          const y = 50 + (i % 3) * 60;
+          ctx.beginPath(); ctx.rect(x, y, 15, 15); ctx.stroke();
+      }
+
+      // Efecto de parpadeo rojo cuando queda poco tiempo (<30s)
+      let opacity = (Math.sin(Date.now() / 150) + 1) / 8;
+      if (gameTime <= 30) {
+          opacity = (Math.sin(Date.now() / 100) + 1) / 4; // Más rápido y fuerte
+          canvas.classList.add('critical-alert');
+      } else {
+          canvas.classList.remove('critical-alert');
+      }
       ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`; ctx.fillRect(0, 0, V_W, V_H);
   }
 
@@ -300,19 +341,53 @@ input[type="text"] {
   }
 
   function drawObstacles() { obstacles.forEach(o => { ctx.fillStyle = o.type === 'table' ? '#475569' : '#78350f'; ctx.fillRect(o.x - camera.x, o.y, o.w, o.h); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.strokeRect(o.x - camera.x, o.y, o.w, o.h); }); }
-  function drawTerminal(t) { const tx = t.x - camera.x; const blink = (Math.sin(Date.now() / 200) + 1) / 2; ctx.fillStyle = '#1e293b'; ctx.fillRect(tx, t.y, t.w, t.h); ctx.fillStyle = t.solved ? "#065f46" : "#000"; ctx.fillRect(tx + 4, t.y + 4, t.w - 8, t.h - 12); if(!t.solved) { ctx.strokeStyle = `rgba(0, 210, 255, ${blink})`; ctx.lineWidth = 2; ctx.strokeRect(tx - 2, t.y - 2, t.w + 4, t.h + 4); } }
-  function drawDoor(d) { const dx = d.x - camera.x; ctx.fillStyle = d.open ? "#020617" : "#334155"; ctx.fillRect(dx, d.y, d.w, d.h); ctx.strokeStyle = d.isFinal ? '#ffcc00' : '#00d2ff'; ctx.strokeRect(dx, d.y, d.w, d.h); }
+  
+  function drawTerminal(t) { 
+      const tx = t.x - camera.x; 
+      const blink = (Math.sin(Date.now() / 200) + 1) / 2; 
+      ctx.fillStyle = '#1e293b'; ctx.fillRect(tx, t.y, t.w, t.h); 
+      ctx.fillStyle = t.solved ? "#065f46" : "#000"; ctx.fillRect(tx + 4, t.y + 4, t.w - 8, t.h - 12); 
+      
+      if(!t.solved) { 
+          ctx.strokeStyle = `rgba(0, 210, 255, ${blink})`; ctx.lineWidth = 2; ctx.strokeRect(tx - 2, t.y - 2, t.w + 4, t.h + 4); 
+          // MEJORA: Prompt de interacción visual
+          if (Math.abs((player.x + player.w/2) - (t.x + t.w/2)) < 50) {
+              ctx.fillStyle = "white"; ctx.font = "12px monospace"; ctx.textAlign = "center";
+              ctx.fillText("[E] o ✋", tx + t.w/2, t.y - 15 + Math.sin(Date.now()/150)*3);
+          }
+      } 
+  }
+
+  function drawDoor(d) { 
+      const dx = d.x - camera.x; ctx.fillStyle = d.open ? "#020617" : "#334155"; ctx.fillRect(dx, d.y, d.w, d.h); 
+      ctx.strokeStyle = d.isFinal ? '#ffcc00' : '#00d2ff'; ctx.strokeRect(dx, d.y, d.w, d.h); 
+      
+      // Prompt en puerta final
+      if (d.isFinal && !d.open && Math.abs((player.x + player.w/2) - (d.x + d.w/2)) < 50) {
+          ctx.fillStyle = "white"; ctx.font = "12px monospace"; ctx.textAlign = "center";
+          ctx.fillText("SALIDA [E]", dx + d.w/2, d.y - 10 + Math.sin(Date.now()/150)*3);
+      }
+  }
+
+  function drawIsotope() {
+      if(isotope.collected) return;
+      const ix = isotope.x - camera.x;
+      const hover = Math.sin(Date.now() / 200) * 5;
+      ctx.fillStyle = "#64ffda";
+      ctx.beginPath(); ctx.arc(ix + 10, isotope.y + 10 + hover, 8, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 15; ctx.shadowColor = "#64ffda"; ctx.fill(); ctx.shadowBlur = 0; // Glow effect
+  }
 
   function update() {
     if (modalOpen || gameTime <= 0 || !isPlaying) return;
 
     let nx = player.x; player.isMoving = false;
     
-    // Combina teclas de teclado y botones móviles
     if (keys['ArrowRight'] || keys['d'] || tRight) { nx += player.speed; player.dir = 1; player.isMoving = true; }
     if (keys['ArrowLeft'] || keys['a'] || tLeft) { nx -= player.speed; player.dir = -1; player.isMoving = true; }
     if ((keys[' '] || keys['w'] || keys['ArrowUp'] || tJump) && player.isGrounded) {
       player.vy = player.jumpForce; player.isGrounded = false;
+      vibrate(15); // Pequeña vibración al saltar
     }
 
     player.vy += player.gravity; player.y += player.vy;
@@ -331,6 +406,14 @@ input[type="text"] {
 
     player.x = nx;
     doors.forEach(d => { if(!d.open && player.x + player.w > d.x && player.x < d.x + d.w) player.x = d.x - player.w; });
+    
+    // Recolectar Isótopo
+    if (!isotope.collected && player.x + player.w > isotope.x && player.x < isotope.x + isotope.w && player.y + player.h > isotope.y) {
+        isotope.collected = true;
+        playValidSound();
+        document.getElementById('hud-isotope').style.display = 'block';
+    }
+
     camera.x += (player.x - camera.x - V_W/3) * 0.1; camera.x = Math.max(0, Math.min(camera.x, 2400));
     player.frame++;
   }
@@ -340,7 +423,7 @@ input[type="text"] {
           gameTime--;
           const m = Math.floor(gameTime / 60); const s = gameTime % 60;
           document.getElementById('time').innerText = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-          if(gameTime === 0) alert("EVACUACIÓN FALLIDA: EL LABORATORIO SE HA SELLADO.");
+          if(gameTime <= 0) alert("EVACUACIÓN FALLIDA: EL LABORATORIO SE HA SELLADO.");
       }
   }, 1000);
 
@@ -350,10 +433,11 @@ input[type="text"] {
       document.getElementById('modal-title').innerText = `BIENVENIDO, ${currentStudent?.nombre || 'ESTUDIANTE'}`;
       document.getElementById('modal-question').innerHTML = `
           <div class="def-box">
-              <strong>Móvil:</strong> Usa los botones en pantalla para moverte y la MANO para interactuar con las computadoras.<br><br>
-              <strong>PC:</strong> Mover: ← → | Saltar: W | Clic: Interactuar
+              <strong>Misión:</strong> Desbloquea las 4 terminales respondiendo preguntas de química.<br><br>
+              <strong>NUEVO OBJETIVO:</strong> Localiza y recoge el ISÓTOPO INESTABLE (☢️) antes de salir.<br><br>
+              <strong>Controles:</strong> Usa los botones en pantalla (Móvil) o las flechas/WASD + "E" (PC).
           </div>
-          <p style="color:red">PELIGRO: El reactor fallará en 2 minutos. ¡Rápido!</p>
+          <p style="color:red">PELIGRO: Respuestas incorrectas restan 10 segundos al reloj.</p>
       `;
       const opts = document.getElementById('modal-opts'); opts.innerHTML = '';
       const b = document.createElement('button'); b.className = 'btn btn-gold'; b.innerText = "INICIAR MISIÓN";
@@ -377,7 +461,6 @@ input[type="text"] {
                   optsDiv.innerHTML = '';
                   const cb = document.createElement('button'); cb.className = 'btn btn-gold'; cb.innerText = "REGISTRAR";
                   
-                  // AL REGISTRAR, SE EJECUTA EL SONIDO
                   cb.onclick = () => {
                       playValidSound(); 
                       t.solved = true; solvedCount++; partialCode[id] = REAL_CODE[id];
@@ -387,7 +470,12 @@ input[type="text"] {
                       closeModal();
                   };
                   optsDiv.appendChild(cb);
-              } else { alert("ERROR DE AUTENTICACIÓN"); }
+              } else { 
+                  // MEJORA: Penalización de tiempo
+                  triggerDamage();
+                  gameTime = Math.max(0, gameTime - 10);
+                  alert("ERROR DE AUTENTICACIÓN: -10 SEGUNDOS PENALIZACIÓN"); 
+              }
           };
           optsDiv.appendChild(b);
       });
@@ -412,24 +500,37 @@ input[type="text"] {
           else if (val === "OK") {
               if (currentKeyInput === REAL_CODE.join('')) {
                   doors[3].open = true; 
-                  alert("¡CÓDIGO CORRECTO! Guardando récord...");
+                  document.getElementById('modal-title').innerText = "PROCESANDO...";
+                  document.getElementById('keypad-container').style.display = 'none';
                   
-                  // GUARDAR RÉCORD EN FIREBASE
+                  const recordData = {
+                      juego: "scape_materia",
+                      estudiante_id: currentStudent?.zipgrade || "Anon",
+                      nombre: currentStudent?.nombre || "Anónimo",
+                      tiempoRestante: gameTime,
+                      fecha: new Date().toISOString(),
+                      isotopo_recuperado: isotope.collected // Guardamos si agarró el objeto opcional
+                  };
+
+                  // MEJORA: Fallback Offline para Firebase
                   try {
-                      await addDoc(collection(db, "records"), {
-                          juego: "scape_materia",
-                          estudiante_id: currentStudent?.zipgrade || "Anon",
-                          nombre: currentStudent?.nombre || "Anónimo",
-                          tiempoRestante: gameTime,
-                          fecha: new Date().toISOString()
-                      });
-                      alert("¡RÉCORD GUARDADO! LABORATORIO EVACUADO.");
+                      await addDoc(collection(db, "Scaperoom"), recordData);
+                      alert("¡RÉCORD GUARDADO EN LA NUBE! LABORATORIO EVACUADO.");
                   } catch (e) {
                       console.error("Error guardando:", e);
-                      alert("Laboratorio evacuado, pero hubo un error guardando tu puntaje.");
+                      // Guardado local si falla internet
+                      let offlineRecords = JSON.parse(localStorage.getItem('offline_records') || '[]');
+                      offlineRecords.push(recordData);
+                      localStorage.setItem('offline_records', JSON.stringify(offlineRecords));
+                      alert("Laboratorio evacuado. Sin internet: el puntaje se guardó en este dispositivo.");
                   }
                   closeModal();
-              } else { alert("CÓDIGO INVÁLIDO"); currentKeyInput = ""; }
+              } else { 
+                  triggerDamage();
+                  gameTime = Math.max(0, gameTime - 5); // Penalidad menor en el código final
+                  alert("CÓDIGO INVÁLIDO. -5 Segundos."); 
+                  currentKeyInput = ""; 
+              }
           } else if (currentKeyInput.length < 4) currentKeyInput += val;
           updateKeyScreen();
       };
@@ -439,20 +540,24 @@ input[type="text"] {
   function updateKeyScreen() { document.getElementById('key-screen').innerText = currentKeyInput.padEnd(4, '_'); }
   function closeModal() { modalOpen = false; document.getElementById('modal').style.display = 'none'; }
 
-  // --- INTERACCIÓN CON BOTÓN MÓVIL ---
   function tryInteract() {
       terminals.forEach(t => {
-          if (player.x + player.w > t.x - 20 && player.x < t.x + t.w + 20) {
+          if (player.x + player.w > t.x - 30 && player.x < t.x + t.w + 30) {
               if (!t.solved) openQuestion(t.id);
           }
       });
       const lastDoor = doors[3];
-      if (player.x + player.w > lastDoor.x - 20 && player.x < lastDoor.x + lastDoor.w + 20) {
-          if (solvedCount < 4) alert("ERROR: Faltan registros."); else openKeypad();
+      if (player.x + player.w > lastDoor.x - 30 && player.x < lastDoor.x + lastDoor.w + 30) {
+          if (solvedCount < 4) {
+              alert("ERROR: Faltan registros.");
+          } else if (!isotope.collected) {
+              alert("PROTOCOLO INCOMPLETO: Debes recuperar el ISÓTOPO INESTABLE antes de salir.");
+          } else {
+              openKeypad();
+          }
       }
   }
 
-  // --- LISTENERS MÓVILES ---
   const btnLeft = document.getElementById('btn-left');
   const btnRight = document.getElementById('btn-right');
   const btnJump = document.getElementById('btn-jump');
@@ -466,34 +571,18 @@ input[type="text"] {
   btnJump.addEventListener('touchend', (e)=>{e.preventDefault(); tJump = false;});
   btnInteract.addEventListener('touchstart', (e)=>{e.preventDefault(); tryInteract();});
 
-  // --- LISTENERS PC ---
-  canvas.addEventListener('click', (e) => {
-      if (modalOpen) return;
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const clickX = (e.clientX - rect.left) * scaleX + camera.x;
-      const clickY = (e.clientY - rect.top) * scaleY;
-      
-      terminals.forEach(t => {
-        if (clickX > t.x && clickX < t.x + t.w && clickY > t.y && clickY < t.y + t.h) if (!t.solved) openQuestion(t.id);
-      });
-      const lastDoor = doors[3];
-      if (clickX > lastDoor.x && clickX < lastDoor.x + lastDoor.w) {
-        if (solvedCount < 4) alert("ERROR: Faltan registros."); else openKeypad();
-      }
-  });
-
   const keys = {};
-  window.onkeydown = (e) => keys[e.key] = true;
-  window.onkeyup = (e) => keys[e.key] = false;
+  window.addEventListener('keydown', (e) => {
+      keys[e.key] = true;
+      if(e.key.toLowerCase() === 'e' && !modalOpen) tryInteract(); // Tecla E para interactuar
+  });
+  window.addEventListener('keyup', (e) => keys[e.key] = false);
   document.getElementById('modal-close').onclick = closeModal;
 
-  // --- BUCLE PRINCIPAL ---
   function main() {
       ctx.clearRect(0,0,V_W,V_H); drawDecor();
       ctx.fillStyle = "#1e293b"; ctx.fillRect(0, GROUND_Y, V_W, 60);
-      drawObstacles(); terminals.forEach(drawTerminal); doors.forEach(drawDoor); drawPlayer();
+      drawObstacles(); drawIsotope(); terminals.forEach(drawTerminal); doors.forEach(drawDoor); drawPlayer();
       update(); requestAnimationFrame(main);
   }
 
